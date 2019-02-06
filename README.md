@@ -9,20 +9,18 @@ The provisioner can be configured via the following environment variables:
 
 | Variable | Description | Default |
 | :------: | :---------- | :-----: |
-| `ZFS_PARENT_DATASET` | The parent dataset in which datasets will be created, needs to exist beforehand. No leading or trailing slashes. Mandatory. | |
-| `ZFS_SHARE_OPTIONS` | Additional nfs share options, comma-separated. | `rw=@10.0.0.0/8` |
-| `ZFS_SERVER_HOSTNAME` | The hostname or ip which the pods should use to mount the volume. Determined via `hostname -f` if empty. | |
-| `ZFS_PROVISIONER_NAME` | Name of the provisioner. Change only if you want to run multiple instances. | `gentics.com/zfs` |
-| `ZFS_KUBE_RECLAIM_POLICY` | The reclaim policy to use, currently either `Delete` or `Retain`. |`Delete` |
+| `ZFS_PROVISIONER_NAME` | Name of the provisioner. Change only if you want to run multiple instances. | `creamfinance.com/zfs` |
 | `ZFS_KUBE_CONF` | Path to the kubernetes config file which will be used to connect to the cluster. |`kube.conf` |
 | `ZFS_METRICS_PORT` | Port on which to export Prometheus metrics. | `8080` |
 
 ## Notes
-### Reclaim policy
-This provisioner currently supports the `Delete` or `Retain` reclaim policy. Until [kubernetes/#38192](https://github.com/kubernetes/kubernetes/issues/38192) is resolved, this is configured per provisioner via an environment variable. To use both, run two instances of the provisioner and configure different storage classes.
+### Annotations
+The dataset that was created is saved in the persistent volume as a annotation `creamfinance.com/zfs-dataset`.
+On delete the dataset name is checked against the PV Name - so only datasets that match exactly the name of the volume will actually be deleted to hinder manipulation.
 
 ### Storage space
-The provisioner uses the `reflimit` and `refquota` ZFS attributes to limit storage space for volumes. Each volume can not use more storage space than the given resource request and also reserves exactly that much. This means that over provisioning is not possible. Snapshots **do not** account for the storage space limit. See Oracles [ZFS Administration Guide](https://docs.oracle.com/cd/E23823_01/html/819-5461/gazvb.html) for more information.
+The provisioner uses the `reflimit` and `refquota` ZFS attributes to limit storage space for volumes.
+The overProvision property in the storage class controls if reflimit is set or not, refquota is always set.
 
 ## Development
 

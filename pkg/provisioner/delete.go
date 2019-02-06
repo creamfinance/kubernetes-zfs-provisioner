@@ -1,3 +1,4 @@
+// Modifications copyright (C) 2019 Cream Finance IT Austria GmbH
 package provisioner
 
 import (
@@ -6,7 +7,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	zfs "github.com/simt2/go-zfs"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 )
 
 // Delete removes a given volume from the server
@@ -24,23 +25,36 @@ func (p ZFSProvisioner) Delete(volume *v1.PersistentVolume) error {
 
 // deleteVolume deletes a ZFS dataset from the server
 func (p ZFSProvisioner) deleteVolume(volume *v1.PersistentVolume) error {
-	children, err := p.parent.Children(0)
-	if err != nil {
-		return fmt.Errorf("Retrieving ZFS dataset for deletion failed with: %v", err.Error())
+	// Retrieve annotation from persistent volume
+	// Possible attack point by changing the annotation?!
+	// (do we need to encrypt the path?)
+
+	datasetName, ok := volume.ObjectMeta.Annotations[annDataset]
+
+	if !ok {
+		return fmt.Errorf("Unable to find dataset annotation")
+	}
+
+	log.WithFields(log.Fields{
+		"datasetName": datasetName,
+		"volume": volume,
+	}).Info("Parent Dataset")
+
+	// retrieve the dataset
+	preDataset, err := zfs.GetDataset(datasetName)
+
+	if !ok {
+		return fmt.Errorf("Unable to get dataset")
 	}
 
 	var dataset *zfs.Dataset
-	for _, child := range children {
-		if child.Type != "filesystem" {
-			continue
-		}
 
-		matched, _ := regexp.MatchString(`.+\/`+volume.Name, child.Name)
-		if matched {
-			dataset = child
-			break
-		}
+	matched, _ := regexp.MatchString(`.+\/` + volume.Name, preDataset.Name)
+
+	if matched {
+		dataset = preDataset
 	}
+
 	if dataset == nil {
 		err = fmt.Errorf("Volume %v could not be found", &volume)
 	}
@@ -50,6 +64,7 @@ func (p ZFSProvisioner) deleteVolume(volume *v1.PersistentVolume) error {
 	}
 
 	err = dataset.Destroy(zfs.DestroyRecursive)
+
 	if err != nil {
 		return fmt.Errorf("Deleting ZFS dataset failed with: %v", err.Error())
 	}

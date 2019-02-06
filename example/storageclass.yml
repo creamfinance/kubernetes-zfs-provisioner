@@ -4,3 +4,9 @@ apiVersion: storage.k8s.io/v1beta1
 metadata:
   name: zfs
 provisioner: gentics.com/zfs
+reclaimPolicy: Delete
+parameters:
+  parentDataset: storage/parent
+  shareOptions: rw=@10.0.0.0/8
+  serverHostname: 10.0.13.3
+  overProvision: false

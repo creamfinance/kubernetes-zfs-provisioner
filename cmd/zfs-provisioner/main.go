@@ -1,18 +1,20 @@
+// Modifications copyright (C) 2019 Cream Finance IT Austria GmbH
+
 package main
 
 import (
-	"errors"
+	// "errors"
 	"net/http"
-	"os/exec"
+	// "os/exec"
 	"strings"
-	"time"
+	// "time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gentics/kubernetes-zfs-provisioner/pkg/provisioner"
-	"github.com/kubernetes-incubator/external-storage/lib/controller"
+	"github.com/creamfinance/kubernetes-zfs-provisioner/pkg/provisioner"
+	"github.com/kubernetes-sigs/sig-storage-lib-external-provisioner/controller"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/simt2/go-zfs"
+	// "github.com/simt2/go-zfs"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -21,23 +23,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	leasePeriod   = controller.DefaultLeaseDuration
-	retryPeriod   = controller.DefaultRetryPeriod
-	renewDeadline = controller.DefaultRenewDeadline
-	termLimit     = controller.DefaultTermLimit
-)
-
 func main() {
 	viper.SetEnvPrefix("zfs")
 	viper.AutomaticEnv()
 
-	viper.SetDefault("parent_dataset", "")
-	viper.SetDefault("share_options", "rw=@10.0.0.0/8")
-	viper.SetDefault("server_hostname", "")
 	viper.SetDefault("kube_conf", "kube.conf")
-	viper.SetDefault("kube_reclaim_policy", "Delete")
-	viper.SetDefault("provisioner_name", "gentics.com/zfs")
+	viper.SetDefault("provisioner_name", "creamfinance.com/zfs")
 	viper.SetDefault("metrics_port", "8080")
 	viper.SetDefault("debug", false)
 
@@ -80,36 +71,12 @@ func main() {
 		"version": serverVersion.GitVersion,
 	}).Info("Retrieved server version")
 
-	// Determine hostname if not set
-	if viper.GetString("server_hostname") == "" {
-		hostname, err := exec.Command("hostname", "-f").Output()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-			}).Fatal("Determining server hostname via \"hostname -f\" failed")
-		}
-		viper.Set("server_hostname", hostname)
-	}
-
-	// Load ZFS parent dataset
-	if viper.GetString("parent_dataset") == "" {
-		log.WithFields(log.Fields{
-			"error": errors.New("Parent dataset is not set"),
-		}).Fatal("Could not open ZFS parent dataset")
-	}
-	parent, err := zfs.GetDataset(viper.GetString("parent_dataset"))
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Fatal("Could not open ZFS parent dataset")
-	}
-
 	// Create the provisioner
-	zfsProvisioner := provisioner.NewZFSProvisioner(parent, viper.GetString("share_options"), viper.GetString("server_hostname"), viper.GetString("kube_reclaim_policy"))
+	zfsProvisioner := provisioner.NewZFSProvisioner()
 
 	// Start and export the prometheus collector
 	registry := prometheus.NewPedanticRegistry()
-	registry.MustRegister(zfsProvisioner)
+	// registry.MustRegister(zfsProvisioner)
 	handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		ErrorLog:      log.StandardLogger(),
 		ErrorHandling: promhttp.HTTPErrorOnError,
@@ -123,7 +90,14 @@ func main() {
 	log.Info("Started Prometheus exporter")
 
 	// Start the controller
-	pc := controller.NewProvisionController(clientset, 15*time.Second, viper.GetString("provisioner_name"), zfsProvisioner, serverVersion.GitVersion, false, 2, leasePeriod, renewDeadline, retryPeriod, termLimit)
+	pc := controller.NewProvisionController(
+		clientset,
+		viper.GetString("provisioner_name"),
+		zfsProvisioner,
+		serverVersion.GitVersion,
+		controller.LeaderElection(false),
+	)
+
 	log.Info("Listening for events")
 	pc.Run(wait.NeverStop)
 }
