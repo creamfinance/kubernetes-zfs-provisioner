@@ -18,6 +18,8 @@ The provisioner can be configured via the following environment variables:
 The dataset that was created is saved in the persistent volume as a annotation `creamfinance.com/zfs-dataset`.
 On delete the dataset name is checked against the PV Name - so only datasets that match exactly the name of the volume will actually be deleted to hinder manipulation.
 
+The second annotation that is available is `creamfinance.com/zfs-owner` which can be added to a pvc to set the ownership of the root folder.
+
 ### Storage space
 The provisioner uses the `reflimit` and `refquota` ZFS attributes to limit storage space for volumes.
 The overProvision property in the storage class controls if reflimit is set or not, refquota is always set.

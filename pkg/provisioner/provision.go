@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"errors"
+	"strings"
+	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/kubernetes-sigs/sig-storage-lib-external-provisioner/controller"
@@ -15,6 +17,7 @@ import (
 
 const (
 	annDataset = "creamfinance.com/zfs-dataset"
+	annOwner = "creamfinance.com/zfs-owner"
 )
 
 // Provision creates a PersistentVolume, sets quota and shares it via NFS.
@@ -146,6 +149,60 @@ func (p ZFSProvisioner) createVolume(options controller.VolumeOptions) (string, 
 
 	if err != nil {
 		return "", "", fmt.Errorf("Creating ZFS dataset failed with: %v", err.Error())
+	}
+
+	// Set ownership
+	owner, ok := options.Parameters["owner"];
+
+	// check if the pvc has a special annotation
+	pvc_owner, pvc_ok := options.PVC.ObjectMeta.Annotations[annOwner]
+
+	if pvc_ok {
+		owner = pvc_owner
+		ok = true
+	}
+
+	if ok {
+		// Split owner
+		ids := strings.Split(owner, ":")
+
+		if len(ids) == 2 {
+			uid, err := strconv.Atoi(ids[0])
+
+			if err != nil {
+				return "", "", fmt.Errorf("Error setting ownership: %s", err.Error())
+			}
+
+			gid, err := strconv.Atoi(ids[1])
+
+			if err != nil {
+				return "", "", fmt.Errorf("Error setting ownership: %s", err.Error())
+			}
+
+			err = os.Chown(dataset.Mountpoint, uid, gid)
+
+			if err != nil {
+				return "", "", fmt.Errorf("Error setting ownership: %s", err.Error())
+			} else {
+				fmt.Printf("Updated ownership of %s to %d %d\n", dataset.Mountpoint, uid, gid)
+			}
+		} else if len(ids) == 1 {
+			uid, err := strconv.Atoi(ids[0])
+
+			if err != nil {
+				return "", "", fmt.Errorf("Error setting ownership: %s", err.Error())
+			}
+
+			err = os.Chown(dataset.Mountpoint, uid, -1)
+
+			if err != nil {
+				return "", "", fmt.Errorf("Error setting ownership: %s", err.Error())
+			} else {
+				fmt.Printf("Updated ownership of %s to %d\n", dataset.Mountpoint, uid)
+			}
+		} else {
+			return "", "", fmt.Errorf("Invalid format for owners")
+		}
 	}
 
 	return zfsPath, dataset.Mountpoint, nil

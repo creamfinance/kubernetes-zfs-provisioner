@@ -43,8 +43,10 @@ func (p ZFSProvisioner) deleteVolume(volume *v1.PersistentVolume) error {
 	// retrieve the dataset
 	preDataset, err := zfs.GetDataset(datasetName)
 
-	if !ok {
-		return fmt.Errorf("Unable to get dataset")
+	if err != nil {
+		// it's probably already deleted here, just log
+		fmt.Printf("Unable to get dataset: %v", err)
+		return nil
 	}
 
 	var dataset *zfs.Dataset
