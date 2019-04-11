@@ -14,6 +14,34 @@ The provisioner can be configured via the following environment variables:
 | `ZFS_METRICS_PORT` | Port on which to export Prometheus metrics. | `8080` |
 
 ## Notes
+
+### StorageClass format
+
+The storage class needs to be defined with a provisioner, an example would be:
+
+```
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: zfs
+provisioner: creamfinance.com/zfs
+reclaimPolicy: Delete
+parameters:
+  parentDataset: storage/cluster
+  shareOptions: rw=@10.5.3.0/24
+  serverHostname: "10.5.3.1"
+  overProvision: "true"
+```
+
+Whereas:
+
+| Parameter | Description |
+| :-------: | :---------: |
+|parentDataset | defines where the newly provisioned volumes will be places |
+|shareOptions | defines the options for the sharenfs property of zfs |
+|serverHostname | defines how nodes can actually reach the nfs server |
+|overProvision | defines if refreservation (overProvision = false) is set or only refquota (overProvision = true) |
+
 ### Annotations
 The dataset that was created is saved in the persistent volume as a annotation `creamfinance.com/zfs-dataset`.
 On delete the dataset name is checked against the PV Name - so only datasets that match exactly the name of the volume will actually be deleted to hinder manipulation.
@@ -23,6 +51,7 @@ The second annotation that is available is `creamfinance.com/zfs-owner` which ca
 A third annotation `creamfinance.com/zfs-clone` can be specified to always clone the specified volume into a new volume, and destroy the clone and snapshot on pvc delete.
 
 ### Storage space
+
 The provisioner uses the `reflimit` and `refquota` ZFS attributes to limit storage space for volumes.
 The overProvision property in the storage class controls if reflimit is set or not, refquota is always set.
 
