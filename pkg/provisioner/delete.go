@@ -71,5 +71,30 @@ func (p ZFSProvisioner) deleteVolume(volume *v1.PersistentVolume) error {
 		return fmt.Errorf("Deleting ZFS dataset failed with: %v", err.Error())
 	}
 
+	/* Delete created snapshot */
+	snapshotName, ok := volume.ObjectMeta.Annotations[annSnapshot]
+
+	if ok {
+		// find the snapshot
+		snapshot, err := zfs.GetDataset(snapshotName)
+
+		if err != nil {
+			return fmt.Errorf("Finding ZFS snapshot failed with: %v", err.Error())
+		}
+
+		if snapshot.Type != zfs.DatasetSnapshot {
+			return fmt.Errorf("Snapshot is no snapshot?! (%s)", snapshotName)
+		}
+
+		err = snapshot.Destroy(zfs.DestroyRecursive)
+
+		if err != nil {
+			return fmt.Errorf("Deleting ZFS snapshot failed with: %v", err.Error())
+		}
+	}
+
+
+
+
 	return nil
 }

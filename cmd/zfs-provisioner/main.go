@@ -89,6 +89,10 @@ func main() {
 	}()
 	log.Info("Started Prometheus exporter")
 
+	log.WithFields(log.Fields{
+		"provisioner_name": viper.GetString("provisioner_name"),
+	}).Info("Using provisioner name")
+
 	// Start the controller
 	pc := controller.NewProvisionController(
 		clientset,

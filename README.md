@@ -20,6 +20,8 @@ On delete the dataset name is checked against the PV Name - so only datasets tha
 
 The second annotation that is available is `creamfinance.com/zfs-owner` which can be added to a pvc to set the ownership of the root folder.
 
+A third annotation `creamfinance.com/zfs-clone` can be specified to always clone the specified volume into a new volume, and destroy the clone and snapshot on pvc delete.
+
 ### Storage space
 The provisioner uses the `reflimit` and `refquota` ZFS attributes to limit storage space for volumes.
 The overProvision property in the storage class controls if reflimit is set or not, refquota is always set.
@@ -36,7 +38,7 @@ dd if=/dev/zero bs=1024m count=10 of=disk.img
 ### Linux
 
 ```
-runcate --size 1G disk1.img
+truncate --size 1G disk1.img
 sudo zpool create pool1 $PWD/disk1.img -m $PWD/test
 ```
 
